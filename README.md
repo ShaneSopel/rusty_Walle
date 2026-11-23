@@ -33,15 +33,6 @@ Built around a **hardware-agnostic, trait-based systems architecture** that deco
 
 ---
 
-## 🚀 Future Work & Subsystem Roadmap
-
-* **Eye Vision System (Binocular / Eye Cameras):**
-  * Integrate compact camera modules inside WALL-E's eye housings for live video streaming, face/object tracking, and closed-loop head/eye pan-tilt tracking via `WallEBody`.
-* **Audio & Sound Effects Subsystem (MP3 / I2S Audio):**
-  * Add an MP3 playback module (e.g., DFPlayer Mini over UART or an I2S DAC/amplifier) triggered asynchronously from FreeRTOS tasks to play WALL-E vocalizations, startup chimes, and servo/motor sound effects synchronized with expressions.
-* **Front Chassis Diagnostics & Charge-Meter Display (LCD Screen):**
-  * Mount an SPI/I2C LCD panel on the front torso styled after WALL-E's iconic solar charge display, serving as a live telemetry and diagnostics screen (battery voltage, rail status, active FreeRTOS tasks, UART/motor health, and expression state) rendered in Rust (`embedded-graphics`).
-
 ## ✅ Systems Engineering & Integration Status
 
 - [x] **End-to-End UART Servo Control:** Verified Compact Serial Protocol framing, `0xAA` auto-baud handshake, speed/acceleration profiling, and physical MG90S actuation across all 6 Pololu Maestro channels (`0..=5`).
@@ -50,3 +41,14 @@ Built around a **hardware-agnostic, trait-based systems architecture** that deco
 - [ ] **Appendage Controller Integration:** Bind calibrated `WallEMap` channels into `WallEBody` and implement coordinated expressions (`look_at`, `tilt_eyes`, `wave`).
 - [ ] **Tread Drive & Differential Kinematics:** Complete `tb67h450.rs` (`20 kHz` LEDC PWM) and differential tread mixer.
 - [ ] **Full Chassis Assembly & Wiring Harness:** Final mechanical horn indexing at `0.5` neutral home and internal harness routing.
+
+---
+
+## 🚀 Future Work & Subsystem Roadmap
+
+* **Eye Vision System (Binocular / Eye Cameras):**
+  * Integrate compact camera modules inside WALL-E's eye housings for live video streaming, face/object tracking, and closed-loop head/eye pan-tilt tracking via `WallEBody`.
+* **Audio & Sound Effects Subsystem (MP3 / I2S Audio):**
+  * Add an MP3 playback module (e.g., DFPlayer Mini over UART or an I2S DAC/amplifier) triggered asynchronously from FreeRTOS tasks to play WALL-E vocalizations, startup chimes, and servo/motor sound effects synchronized with expressions.
+* **Front Chassis Diagnostics & Charge-Meter Display (LCD Screen):**
+  * Mount an SPI/I2C LCD panel on the front torso styled after WALL-E's iconic solar charge display, serving as a live telemetry and diagnostics screen (battery voltage, rail status, active FreeRTOS tasks, UART/motor health, and expression state) rendered in Rust (`embedded-graphics`).

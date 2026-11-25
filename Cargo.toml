@@ -22,6 +22,8 @@ esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf.git" }
 esp-idf-svc = { git = "https://github.com/esp-rs/esp-idf.git" }
 
 [dependencies]
+embedded-graphics = "0.8"
+st7735-lcd = { version = "0.10", features = ["graphics"] }
 log = "0.4"
 esp-idf-svc = { version = "0.53", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
 # Remove `generic-queue-8` if you plan to use `embassy-time` WITH `embassy-executor`

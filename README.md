@@ -1,46 +1,29 @@
-# SW@GL0RD WALL-E — Rust Firmware (ESP32 + FreeRTOS)
+# rusty_Walle 🤖 (`SW@GL0RD WALL-E`)
 
-Modular embedded Rust firmware (`esp-idf-hal` / `esp-idf-svc` on FreeRTOS) for a 3D-printed WALL-E robot powered by an **Emakefun Maker-ESP32**, a **Pololu Micro Maestro 6-channel servo controller**, an onboard **LEDC PWM servo**, and a **1.8" ST7735 SPI TFT diagnostics HUD**.
+Embedded Rust robotics firmware running on **ESP32 + FreeRTOS** (`esp-idf-hal` / `esp-idf-svc`) to control a 3D-printed **WALL-E** robot (based on chillibasket's WALL-E v3.0 mechanical design).
 
----
-
-## Hardware Architecture & Pinout
-
-### 1. Servo Actuators (7-DOF Upper Body)
-* **Channels `0..=5` (Pololu Micro Maestro):** Driven over hardware `UART1` at **115,200 baud** using the Pololu Compact Serial Protocol (`init_auto_baud()`).
-* **Channel `6` (`arm_right`):** Driven directly from the ESP32 `LEDC` peripheral (`Timer0`, `Channel0`) at **50 Hz** with **14-bit duty resolution**.
-
-| Joint Name | Controller | Channel / Pin | Default Range (`µs`) |
-| :--- | :--- | :--- | :--- |
-| `head_rotation` | Pololu Maestro | Channel `0` | `500 – 2500` |
-| `neck_top` | Pololu Maestro | Channel `1` | `500 – 2500` |
-| `neck_bottom` | Pololu Maestro | Channel `2` | `500 – 2500` |
-| `eye_left` | Pololu Maestro | Channel `3` | `500 – 2500` |
-| `eye_right` | Pololu Maestro | Channel `4` | `500 – 2500` |
-| `arm_left` | Pololu Maestro | Channel `5` | `500 – 2500` |
-| `arm_right` | ESP32 `LEDC` | `GPIO 25` | `500 – 2500` |
-
-### 2. Maker-ESP32 Wiring Map
-> **Hardware Note:** On the Emakefun Maker-ESP32, ensure the onboard Motor/IO slide switches are set to **`IO`** so `GPIO 14`, `GPIO 15`, and `GPIO 17` operate as standard digital GPIOs.
-
-| Peripheral | Signal | Maker-ESP32 Pin | Notes |
-| :--- | :--- | :--- | :--- |
-| **Pololu Maestro** | `TX` $\rightarrow$ Maestro `RX` | `GPIO 18` | `UART1` @ `115,200` baud |
-| **Pololu Maestro** | `RX` *(unused)* | `GPIO 19` | Unidirectional TX control |
-| **Right Arm Servo** | `PWM` Signal | `GPIO 25` | 50 Hz `LEDC` (`Timer0` / `Ch0`) |
-| **ST7735 TFT** | `VCC` / `BLK (LED)` | `3.3V` | Logic power & full backlight |
-| **ST7735 TFT** | `GND` | `GND` | Common ground across ESP32, Maestro & TFT |
-| **ST7735 TFT** | `SCL` (`SCLK`) | `GPIO 14` | `SPI2` Clock (`26 MHz`) |
-| **ST7735 TFT** | `SDA` (`MOSI`) | `GPIO 12` | `SPI2` Data (keep free of external pull-ups) |
-| **ST7735 TFT** | `CS` | `GPIO 15` | Chip Select |
-| **ST7735 TFT** | `A0` (`DC`) | `GPIO 26` | Data / Command select |
-| **ST7735 TFT** | `RST` (`RES`) | `GPIO 17` | Hardware Reset |
+Built around a **hardware-agnostic, trait-based systems architecture** that decouples anatomical robot poses, expressions, and live HUD diagnostics from underlying PWM/UART actuator controllers, SPI displays, and DC motor drivers.
 
 ---
 
-## Repository Structure
+## 🏗️ Software & Systems Architecture
 
-The firmware separates low-level hardware drivers from robot-level kinematics and telemetry:
+* **Runtime & Stack:** `std`-enabled Rust on **ESP-IDF / FreeRTOS** (`esp-idf-hal` `0.46+`, `esp-idf-svc`), deterministic task scheduling, and thread-safe shared bus/state access (`Arc<Mutex<...>>`).
+* **Hardware Abstraction Layer (`src/actuators/`):**
+  * **`ServoActuator` Trait (`mod.rs`):** Unified interface (`set_position(0.0..=1.0)`, `set_speed`, `set_accel`, `limp`) shared across heterogeneous servo backends.
+  * **`MaestroBus` & `MaestroChannel` (`pololu_servo.rs`):** Thread-safe UART driver (`115,200` baud, Compact Serial Protocol with `0xAA` auto-baud initialization) controlling 6 upper-body servos with hardware trapezoidal speed/acceleration profiling.
+  * **`LedcServo` (`ledc_servo.rs`):** Hardware-generic ESP32 LEDC PWM driver (`50 Hz`, 14-bit duty resolution) driving the 7th servo channel directly from the microcontroller.
+  * **`Tb67h450Motor` (`tb67h450.rs` - Next):** `DcMotor` trait implementation for dual onboard Toshiba TB67H450FNG H-bridge tread drivers.
+* **Appendage & Kinematic Layer (`src/appendage_controller/`):**
+  * **`WallEBody` (`body.rs`):** High-level anatomical joint controller (`head_rotation`, `neck_top`, `neck_bottom`, `eye_left`, `eye_right`, `arm_left`, `arm_right`) storing `Box<dyn ServoActuator>` and directly updating `Arc<Mutex<TelemetryState>>` on every pose command.
+  * **`WallEMap` & `JointCal` (`mapping.rs`):** Centralized per-joint calibration (`min_us`, `max_us`, `inverted`, `home`) and channel-to-joint binding table.
+* **Diagnostics & Display Subsystem (`src/display/` & `src/diag/`):**
+  * **`DiagnosticsDisplay` Trait (`display/mod.rs`) & `St7735Display` (`display/st7735.rs`):** Hardware-abstracted SPI TFT renderer configured for the 1.8" ST7735 in `160 × 128` Landscape orientation (`embedded-graphics`).
+  * **Background Telemetry Task (`diag/mod.rs` & `telemetry.rs`):** Non-blocking FreeRTOS task (`10 Hz` refresh) rendering the `SW@GL0RD WALL-E` banner, 10-segment color solar charge meter, Maestro bus status, active pose, and real-time joint positions without stalling servo control loops.
+
+---
+
+## 📁 Repository Structure
 
 ```text
 src/
@@ -59,3 +42,70 @@ src/
 └── diag/                        # Non-blocking background telemetry subsystem
     ├── mod.rs                   # FreeRTOS HUD task spawner (10 Hz refresh)
     └── telemetry.rs             # Shared TelemetryState struct
+```
+
+---
+
+## 🔧 Hardware Bill of Materials (BOM) & Pinout
+
+| Subsystem | Component | Interface / Notes |
+| :--- | :--- | :--- |
+| **Compute / MCU** | Emakefun Maker-ESP32 | Dual-core Xtensa LX6, FreeRTOS, onboard H-bridges |
+| **Servo Controller** | Pololu Micro Maestro 6-Channel | `UART1` (`GPIO 18` TX $\rightarrow$ Maestro `RX`, `115,200` baud), common `GND` |
+| **Upper-Body Actuators** | 7x MG90S Micro Servos | Channels `0–5` on Pololu Maestro; Channel `6` (`arm_right`) on `GPIO 25` (`LEDC`) |
+| **Diagnostics HUD** | 1.8" ST7735 Color SPI TFT | `SPI2` (`26 MHz`), `160 × 128` Landscape, styled after WALL-E's solar charge meter |
+| **Drive Motors** | 2x 12V Geared DC Tread Motors | Driven via Maker-ESP32 onboard Toshiba TB67H450FNG H-bridges |
+| **Power Architecture** | Split Logic & Actuator Rails | Dedicated 5V UBEC feeding Maestro `VSRV`/`BAT` rail; isolated 3.3V MCU logic with shared ground |
+| **Chassis** | 3D-Printed WALL-E v3.0 | Printed in PLA on Bambu Lab P2S |
+
+### Maker-ESP32 Wiring Map
+> **Hardware Note:** On the Emakefun Maker-ESP32, ensure the onboard Motor/IO slide switches are set to **`IO`** so `GPIO 14`, `GPIO 15`, and `GPIO 17` operate as standard digital GPIOs.
+
+| Peripheral | Signal | Maker-ESP32 Pin | Notes |
+| :--- | :--- | :--- | :--- |
+| **Pololu Maestro** | `TX` $\rightarrow$ Maestro `RX` | `GPIO 18` | `UART1` @ `115,200` baud |
+| **Pololu Maestro** | `RX` *(unused)* | `GPIO 19` | Unidirectional TX control |
+| **Right Arm Servo** | `PWM` Signal | `GPIO 25` | 50 Hz `LEDC` (`Timer0` / `Ch0`) |
+| **ST7735 TFT** | `VCC` / `BLK (LED)` | `3.3V` | Logic power & full backlight |
+| **ST7735 TFT** | `GND` | `GND` | Common ground across ESP32, Maestro & TFT |
+| **ST7735 TFT** | `SCL` (`SCLK`) | `GPIO 14` | `SPI2` Clock (`26 MHz`) |
+| **ST7735 TFT** | `SDA` (`MOSI`) | `GPIO 12` | `SPI2` Data (keep free of external pull-ups) |
+| **ST7735 TFT** | `CS` | `GPIO 15` | Chip Select |
+| **ST7735 TFT** | `A0` (`DC`) | `GPIO 26` | Data / Command select |
+| **ST7735 TFT** | `RST` (`RES`) | `GPIO 17` | Hardware Reset |
+
+---
+
+## 🚀 Build & Flash
+
+1. **Source the ESP-IDF / Rust Xtensa environment:**
+   ```bash
+   . ~/export-esp.sh
+   ```
+2. **Build and flash to the Maker-ESP32:**
+   ```bash
+   cargo run --release
+   ```
+
+---
+
+## ✅ Systems Engineering & Integration Status
+
+- [x] **End-to-End UART Servo Control:** Verified Compact Serial Protocol framing, `0xAA` auto-baud handshake, speed/acceleration profiling, and physical MG90S actuation across all 6 Pololu Maestro channels (`0..=5`).
+- [x] **Direct ESP32 LEDC Servo Driver:** Implemented and bench-verified 50 Hz 14-bit `LedcServo` on `GPIO 25` conforming to `ServoActuator`.
+- [x] **Split Power Rail Validation:** Verified external servo power injection (`VSRV`/`BAT`) with common ground isolation to prevent MCU brownouts.
+- [x] **Appendage Controller & Calibration Integration:** Bound calibrated `WallEMap` channels into `WallEBody` (`home_all`, `look_at`, `set_eyes`, `set_arms`, `limp_all`) with automatic `TelemetryState` synchronization.
+- [x] **Front Chassis Diagnostics & Charge-Meter Display (`ST7735`):** Implemented `DiagnosticsDisplay` trait, `St7735Display` (`160 × 128` Landscape), and non-blocking FreeRTOS telemetry rendering (`SW@GL0RD WALL-E` banner, 10-bar solar charge meter, live joint/bus status).
+- [ ] **Tread Drive & Differential Kinematics:** Complete `tb67h450.rs` (`20 kHz` LEDC PWM) and differential tread mixer.
+- [ ] **Full Chassis Assembly & Wiring Harness:** Final mechanical horn indexing at `0.5` neutral home, chest display bezel mount, and internal harness routing.
+
+---
+
+## 🔭 Future Work & Subsystem Roadmap
+
+* **Eye Vision System (Binocular / Eye Cameras):**
+  * Integrate compact camera modules inside WALL-E's eye housings for live video streaming, face/object tracking, and closed-loop head/eye pan-tilt tracking via `WallEBody`.
+* **Audio & Sound Effects Subsystem (MP3 / I2S Audio):**
+  * Add an MP3 playback module (e.g., DFPlayer Mini over UART or an I2S DAC/amplifier) triggered asynchronously from FreeRTOS tasks to play WALL-E vocalizations, startup chimes, and servo/motor sound effects synchronized with expressions.
+* **Wireless Telemetry & Remote Control (LoRa / ESP-NOW):**
+  * Integrate wireless link (Heltec V3 LoRa / ESP-NOW) for remote teleoperation, pose triggering, and battery voltage telemetry.

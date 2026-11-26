@@ -1,4 +1,5 @@
 pub mod st7735;
+pub mod ssd3106_oled;
 
 pub use st7735::St7735Display;
 

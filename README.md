@@ -48,15 +48,24 @@ src/
 
 ## 🔧 Hardware Bill of Materials (BOM) & Pinout
 
-| Subsystem | Component | Interface / Notes |
-| :--- | :--- | :--- |
-| **Compute / MCU** | Emakefun Maker-ESP32 | Dual-core Xtensa LX6, FreeRTOS, onboard H-bridges |
-| **Servo Controller** | Pololu Micro Maestro 6-Channel | `UART1` (`GPIO 18` TX $\rightarrow$ Maestro `RX`, `115,200` baud), common `GND` |
-| **Upper-Body Actuators** | 7x MG90S Micro Servos | Channels `0–5` on Pololu Maestro; Channel `6` (`arm_right`) on `GPIO 25` (`LEDC`) |
-| **Diagnostics HUD** | 1.8" ST7735 Color SPI TFT | `SPI2` (`26 MHz`), `160 × 128` Landscape, styled after WALL-E's solar charge meter |
-| **Drive Motors** | 2x 12V Geared DC Tread Motors | Driven via Maker-ESP32 onboard Toshiba TB67H450FNG H-bridges |
-| **Power Architecture** | Split Logic & Actuator Rails | Dedicated 5V UBEC feeding Maestro `VSRV`/`BAT` rail; isolated 3.3V MCU logic with shared ground |
+| Subsystem | Component | Exact Model / Spec | Interface / Notes |
+| :--- | :--- | :--- | :--- |
+| **Compute / MCU** | Emakefun Maker-ESP32 | Dual-core Xtensa LX6, FreeRTOS, onboard H-bridges | Powered at `11.1V` via green `VIN` / `GND` screw terminals; `IO` slide switches set to **`IO`** |
+| **Servo Controller** | Pololu Micro Maestro 6-Channel | `UART1` (`GPIO 18` TX $\rightarrow$ Maestro `RX`, `115,200` baud) | `VSRV=VIN` jumper **removed**; `5.2V` fed to both `VSRV` and `VIN`, tied to common `GND` |
+| **Upper-Body Actuators** | 7x MG90S Micro Servos | Metal-gear micro servos | Channels `0–5` on Pololu Maestro; Channel `6` (`arm_right`) on `GPIO 25` (`LEDC`) |
+| **Diagnostics HUD** | 1.8" ST7735 Color SPI TFT | `SPI2` (`26 MHz`), `160 × 128` Landscape | Styled after WALL-E's solar charge meter (`3.3V` logic/backlight) |
+| **Drive Motors** | 2x 12V Geared DC Tread Motors | **Copkim JGB37-520** (`12V 100RPM`, 37mm, Eccentric 6mm D-Shaft) | Driven via Maker-ESP32 onboard Toshiba `TB67H450FNG` H-bridges (remove L-bracket for pod mount) |
+| **Battery Source** | 3S LiPo Battery Pack | Zeee `11.1V` (`3S`, `Deans T-Plug`) + 14 AWG Female Deans Pigtail | Bench testing with `5500mAh` 80C pack (compact `2200mAh` 3S shorty pack for final torso closure) |
+| **Circuit Protection** | Inline Blade Fuse Holder | 16 AWG Inline ATM Mini Fuse Holder w/ **10A Fuse** | Spliced inline on the main `+11.1V` red battery lead before the cutoff switch |
+| **Main Power Cutoff** | Heavy-Duty Toggle Switch | 2-Pin SPST Toggle Switch (`15A 12V DC`) | Breaks/connects the `+11.1V` rail downstream of the 10A inline fuse |
+| **Power Distribution** | XHF Lever Wire Connectors | 30-Pc Lever Nut Assortment (`28–12 AWG`, 2/3/5-port) | **1× 3-Port** splits `+11.1V` to Maker-ESP32 & buck converter; **1× 5-Port** forms the Star `GND` hub |
+| **5V Servo Regulator** | Step-Down Buck Converter | **UCTRONICS U6223** (`9–36V` In $\rightarrow$ `5.2V / 6A` Out) | Screw-terminal buck module supplying isolated `5.2V` to Maestro `VSRV`/`VIN` and 7th servo |
+| **Chassis** | 3D-Printed WALL-E v3.0 | Chillibasket WALL-E v3.0 STL set | Printed in PLA on Bambu Lab P2S |
 | **Chassis** | 3D-Printed WALL-E v3.0 | Printed in PLA on Bambu Lab P2S |
+
+### Power Distribution & Control Schematic
+
+![WALL-E Power and Control Wiring Diagram](images/BOM.jpeg)
 
 ### Maker-ESP32 Wiring Map
 > **Hardware Note:** On the Emakefun Maker-ESP32, ensure the onboard Motor/IO slide switches are set to **`IO`** so `GPIO 14`, `GPIO 15`, and `GPIO 17` operate as standard digital GPIOs.
